@@ -36,7 +36,9 @@ type Vendor interface {
 	// The prompt is not part of it: it always travels on stdin.
 	Args(model string) []string
 	// Parse decodes a finished run's stdout into the answer and usage.
-	// An errored turn returns its usage too (the spend happened).
+	// An errored turn returns its usage too (the spend happened) and an
+	// error carrying the turn's own text; output that is not a result
+	// at all returns an error wrapping ErrBadOutput.
 	Parse(stdout []byte) (string, aiengine.Usage, error)
 	// LoginExpired reports whether the CLI's output says its own login
 	// is missing or no longer valid.
@@ -46,6 +48,10 @@ type Vendor interface {
 	// VersionArgs is the command line that prints the CLI's version.
 	VersionArgs() []string
 }
+
+// ErrBadOutput is what a Vendor's Parse wraps when the output is not the
+// CLI's result at all, as opposed to a result that reports an error.
+var ErrBadOutput = errors.New("unexpected CLI output")
 
 const (
 	// DefaultTimeout bounds one headless turn.
@@ -144,28 +150,27 @@ func (r *Runner) Complete(ctx context.Context, model, prompt string) (string, ai
 		}
 		// A CLI may report API failures on STDOUT (the claude CLI prints
 		// its JSON result with is_error) and exit nonzero: surface both
-		// streams, and classify them whole. The message is clipped, but
-		// the classification is not: in the claude CLI's result the
-		// telling text comes after a kilobyte of other fields.
-		stdout := strings.TrimSpace(string(out))
+		// streams, and classify them unclipped. When stdout is the CLI's
+		// result, only the result's own text counts: in the claude CLI's
+		// JSON it comes after a kilobyte of durations and ids, where
+		// "429" turns up by chance.
+		detail := strings.TrimSpace(string(out))
+		if _, _, perr := r.Vendor.Parse(out); perr != nil && !errors.Is(perr, ErrBadOutput) {
+			detail = perr.Error()
+		}
 		var stderr string
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			stderr = strings.TrimSpace(string(ee.Stderr))
 		}
-		diag := pace.Clip(stdout, 200)
+		diag := pace.Clip(detail, 200)
 		if stderr != "" {
 			if diag != "" {
 				diag += " | "
 			}
 			diag += pace.Clip(stderr, 200)
 		}
-		// An errored turn's own text is the clearest detail when the
-		// output parses as one.
-		if _, _, perr := r.Vendor.Parse(out); perr != nil && r.Vendor.LoginExpired(perr.Error()) {
-			diag = perr.Error()
-		}
-		whole := stdout + "\n" + stderr
+		whole := detail + "\n" + stderr
 		switch {
 		case diag == "":
 			return "", u, fmt.Errorf("%s CLI failed: %w", name, err)

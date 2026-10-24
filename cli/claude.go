@@ -44,7 +44,7 @@ func (Claude) Parse(out []byte) (string, aiengine.Usage, error) {
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(out, &w); err != nil {
-		return "", aiengine.Usage{}, fmt.Errorf("unexpected claude output: %w", err)
+		return "", aiengine.Usage{}, fmt.Errorf("claude: %w: %w", ErrBadOutput, err)
 	}
 	u := aiengine.Usage{
 		InputTokens:  w.Usage.InputTokens + w.Usage.CacheCreationTokens + w.Usage.CacheReadTokens,

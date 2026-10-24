@@ -131,6 +131,20 @@ func TestCompleteUsageLimitWidensPacing(t *testing.T) {
 	}
 }
 
+// Numbers and ids elsewhere in a failed turn's JSON are not a rate
+// limit: only the result's own text is classified.
+func TestCompleteFailureIgnoresIncidentalDigits(t *testing.T) {
+	r := fakeRunner(t, "errored-429-digits")
+	r.Pacer = pace.New(pace.Options{})
+	_, _, err := r.Complete(context.Background(), "", "x")
+	if err == nil || !strings.Contains(err.Error(), "boom") || aiengine.AuthOf(err) != aiengine.AuthError {
+		t.Fatalf("want the turn's own error, got %v", err)
+	}
+	if s := r.Pacer.Status(); s.Blocks != 0 {
+		t.Fatalf("an incidental 429 in the JSON counted as a block: %+v", s)
+	}
+}
+
 func TestVersion(t *testing.T) {
 	r := fakeRunner(t, "echo")
 	v, err := r.Version(context.Background())
@@ -175,8 +189,8 @@ func TestParseCountsCachedTokens(t *testing.T) {
 	if _, u, err := (Claude{}).Parse(out); err == nil || u.InputTokens != 5 {
 		t.Fatalf("errored turn: err=%v usage=%+v", err, u)
 	}
-	if _, _, err := (Claude{}).Parse([]byte("not json")); err == nil {
-		t.Fatal("non-JSON output must fail")
+	if _, _, err := (Claude{}).Parse([]byte("not json")); !errors.Is(err, ErrBadOutput) {
+		t.Fatalf("non-JSON output must fail with ErrBadOutput: %v", err)
 	}
 }
 
@@ -346,6 +360,9 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	case "logged-out-exit0":
 		fmt.Print(loggedOut)
+	case "errored-429-digits":
+		fmt.Print(`{"duration_ms":1429,"session_id":"04290000-0000","is_error":true,"result":"boom"}`)
+		os.Exit(1)
 	case "errored":
 		fmt.Print(`{"is_error":true,"result":"boom","usage":{"input_tokens":5,"output_tokens":1}}`)
 	case "fail":
