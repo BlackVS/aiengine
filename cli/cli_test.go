@@ -183,6 +183,7 @@ func TestParseCountsCachedTokens(t *testing.T) {
 func TestClaudeClassifiers(t *testing.T) {
 	for _, s := range []string{
 		"Not logged in · Please run /login",
+		"Login expired · Please run /login",
 		"OAuth token has expired. Please obtain a new token or refresh your existing token.",
 		`API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}`,
 		"Invalid API key · Please run /login",

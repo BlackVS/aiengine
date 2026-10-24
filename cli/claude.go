@@ -59,14 +59,16 @@ func (Claude) Parse(out []byte) (string, aiengine.Usage, error) {
 
 // LoginExpired recognises the CLI's own sign-in failures. Signed out,
 // Claude Code 2.1 prints its JSON result with is_error and the text
-// "Not logged in · Please run /login" and exits 1; an expired or revoked
-// login reaches the same "/login" advice, or carries the API's
-// authentication_error inside an "API Error: 401" result.
+// "Not logged in · Please run /login" and exits 1; a login that expired
+// and cannot be refreshed fails with "Login expired · Please run /login"
+// (the CLI's authentication documentation); a revoked one carries the
+// API's authentication_error inside an "API Error: 401" result.
 func (Claude) LoginExpired(output string) bool {
 	m := strings.ToLower(output)
 	for _, s := range []string{
 		"please run /login",
 		"not logged in",
+		"login expired",
 		"oauth token has expired",
 		"oauth token revoked",
 		"authentication_error",

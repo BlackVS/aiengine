@@ -51,7 +51,11 @@ vendor is Anthropic's Claude Code.
 - read the login state only from what the CLI prints (for Claude Code,
   "Not logged in · Please run /login" and similar), and report it as
   `login_expired`;
-- run `--version` to report the CLI's version.
+- run `--version` to report the CLI's version;
+- start the CLI with the calling program's environment unchanged, so
+  the CLI finds whatever sign-in its user configured for it (its own
+  login, or a token the user set for it); aiengine neither reads nor
+  adds any of it.
 
 ### The CLI kind never does
 
@@ -71,6 +75,8 @@ vendor is Anthropic's Claude Code.
 Pages read on 2026-10-24:
 
 - [Claude Code: Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)
+  (read 2026-10-24)
+- [Claude Code: Authentication](https://code.claude.com/docs/en/authentication)
   (read 2026-10-24)
 - [Consumer Terms of Service](https://www.anthropic.com/legal/consumer-terms),
   effective 2025-10-08 (read 2026-10-24)
@@ -95,6 +101,12 @@ What they say, as read:
   unmodified Claude Code binary with their own Claude subscription".
 - "Advertised usage limits for Pro and Max plans assume ordinary,
   individual usage of Claude Code and the Agent SDK."
+- `claude setup-token` generates "a one-year OAuth token" "for CI
+  pipelines, scripts, or other environments where interactive browser
+  login isn't available"; it "authenticates with your Claude
+  subscription and requires a Pro, Max, Team, or Enterprise plan", and
+  the CLI reads it from its own environment variable. It is an OAuth
+  credential, so the OAuth rules above apply to it.
 - The Consumer Terms forbid sharing "your Account login information,
   Anthropic API key, or Account credentials with anyone else", and
   forbid accessing the services "through automated or non-human means,
