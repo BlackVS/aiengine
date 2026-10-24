@@ -1,0 +1,3 @@
+# Normalize line endings at the git boundary: gofmt emits LF and reports a
+# CRLF file as unformatted, so a Windows checkout must not rewrite them.
+* text=auto eol=lf
