@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly, so the terms-boundary date check fails on time even when
+  # nothing is pushed.
+  schedule:
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # The floor go.mod declares, and the newest 1.26 patch.
+        go: ['1.26.0', '1.26']
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go }}
+          check-latest: ${{ matrix.go == '1.26' }}
+          cache: false
+      - name: toolchain is the runner's Go
+        run: go version | grep -q " go${{ matrix.go }}"
+      - name: standard library only
+        run: |
+          deps=$(go list -m all | grep -v '^github.com/BlackVS/aiengine$' || true)
+          if [ -n "$deps" ]; then echo "dependencies outside the standard library:"; echo "$deps"; exit 1; fi
+      - name: build
+        run: go build ./...
+      - name: gofmt
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then echo "not gofmt'd:"; echo "$out"; exit 1; fi
+      - name: vet
+        run: go vet ./...
+      # staticcheck is a CI tool, not a module dependency; pinned, and on
+      # whatever toolchain its own go.mod asks for.
+      - name: staticcheck
+        run: GOTOOLCHAIN=auto go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+      - name: test
+        run: go test -count=1 ./...
+      - name: no vendor credentials file named in the source
+        run: sh scripts/check-no-credential-files.sh
+      - name: terms boundary checked within 180 days
+        run: sh scripts/check-boundary-date.sh

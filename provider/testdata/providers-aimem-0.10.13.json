@@ -1,0 +1,46 @@
+{
+  "providers": {
+    "claude-cli": {
+      "kind": "claude"
+    },
+    "gateway": {
+      "kind": "openai",
+      "base_url": "https://gateway.example/v1",
+      "token": "sk-test-gateway"
+    },
+    "hollow": {
+      "kind": "openai",
+      "base_url": "https://hollow.example/v1"
+    },
+    "openai": {
+      "kind": "openai",
+      "token": "sk-test-openai"
+    }
+  },
+  "models": {
+    "broken": {
+      "provider": "hollow"
+    },
+    "gpt4o-gw": {
+      "provider": "gateway",
+      "model": "gpt-4o"
+    },
+    "gpt4o-oa": {
+      "provider": "openai",
+      "model": "gpt-4o"
+    },
+    "haiku": {
+      "provider": "claude-cli"
+    },
+    "orphan": {
+      "provider": "vanished"
+    },
+    "sonnet-cli": {
+      "provider": "claude-cli",
+      "model": "sonnet"
+    },
+    "text-embedding-3-small": {
+      "provider": "openai"
+    }
+  }
+}
