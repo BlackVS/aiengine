@@ -88,6 +88,9 @@ func sameDir(a, b string) bool {
 	return strings.EqualFold(filepath.Clean(ea), filepath.Clean(eb))
 }
 
+// erroredTurn is an is_error result that reports its spend.
+const erroredTurn = `{"is_error":true,"result":"boom","total_cost_usd":0.01,"usage":{"input_tokens":5,"output_tokens":1}}`
+
 func TestCompleteLoginExpired(t *testing.T) {
 	for _, mode := range []string{"logged-out", "logged-out-exit0"} {
 		r := fakeRunner(t, mode)
@@ -112,11 +115,17 @@ func TestCompleteFailure(t *testing.T) {
 	}
 }
 
+// An errored turn reports its spend whether the CLI then exits 0 or 1.
 func TestCompleteErroredTurnKeepsUsage(t *testing.T) {
-	r := fakeRunner(t, "errored")
-	_, u, err := r.Complete(context.Background(), "", "x")
-	if err == nil || u.InputTokens != 5 || aiengine.AuthOf(err) != aiengine.AuthError {
-		t.Fatalf("errored turn: err=%v usage=%+v", err, u)
+	for _, mode := range []string{"errored", "errored-exit1"} {
+		r := fakeRunner(t, mode)
+		_, u, err := r.Complete(context.Background(), "", "x")
+		if err == nil || aiengine.AuthOf(err) != aiengine.AuthError {
+			t.Fatalf("%s: err=%v", mode, err)
+		}
+		if u.InputTokens != 5 || u.OutputTokens != 1 || u.CostUSD != 0.01 {
+			t.Fatalf("%s: usage lost: %+v", mode, u)
+		}
 	}
 }
 
@@ -364,7 +373,10 @@ func TestMain(m *testing.M) {
 		fmt.Print(`{"duration_ms":1429,"session_id":"04290000-0000","is_error":true,"result":"boom"}`)
 		os.Exit(1)
 	case "errored":
-		fmt.Print(`{"is_error":true,"result":"boom","usage":{"input_tokens":5,"output_tokens":1}}`)
+		fmt.Print(erroredTurn)
+	case "errored-exit1":
+		fmt.Print(erroredTurn)
+		os.Exit(1)
 	case "fail":
 		fmt.Fprint(os.Stderr, "boom on stderr")
 		os.Exit(2)

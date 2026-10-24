@@ -63,9 +63,11 @@ type reply struct {
 }
 
 // post sends body to path, paced, retrying transient upstream blocks with
-// backoff (pace.Blocked: rate-limit and server statuses, HTML block pages,
-// a proxy error wrapping one). Every other response is returned as is for
-// the caller to decode.
+// backoff: a rate-limit or server status, a body that is not JSON and
+// looks like a block page, or a proxy's error envelope wrapping one. A
+// JSON body is never searched as a whole, because a model's answer may
+// mention Cloudflare. Every other response is returned as is for the
+// caller to decode.
 func (c *Client) post(ctx context.Context, path string, body []byte, timeout time.Duration, what string) (reply, error) {
 	base := c.BaseURL
 	if base == "" {
@@ -91,9 +93,11 @@ func (c *Client) post(ctx context.Context, path string, body []byte, timeout tim
 		var eb errorBody
 		_ = json.Unmarshal(raw, &eb)
 		reason := ""
-		if pace.Blocked(resp.StatusCode, string(raw)) {
+		switch {
+		case resp.StatusCode == 429 || resp.StatusCode >= 500,
+			!json.Valid(raw) && pace.BlockedMessage(string(raw)):
 			reason = fmt.Sprintf("%s HTTP %d", what, resp.StatusCode)
-		} else if eb.Error != nil && pace.BlockedMessage(eb.Error.Message) {
+		case eb.Error != nil && pace.BlockedMessage(eb.Error.Message):
 			reason = what + " proxy error: " + pace.Clip(eb.Error.Message, 120)
 		}
 		if reason == "" {

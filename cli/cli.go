@@ -154,9 +154,10 @@ func (r *Runner) Complete(ctx context.Context, model, prompt string) (string, ai
 		// result, only the result's own text counts: in the claude CLI's
 		// JSON it comes after a kilobyte of durations and ids, where
 		// "429" turns up by chance.
+		// The turn's usage is kept too: the spend happened.
 		detail := strings.TrimSpace(string(out))
-		if _, _, perr := r.Vendor.Parse(out); perr != nil && !errors.Is(perr, ErrBadOutput) {
-			detail = perr.Error()
+		if _, pu, perr := r.Vendor.Parse(out); perr != nil && !errors.Is(perr, ErrBadOutput) {
+			detail, u = perr.Error(), pu
 		}
 		var stderr string
 		var ee *exec.ExitError

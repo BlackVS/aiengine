@@ -189,6 +189,28 @@ func TestCompleteRetriesBlocks(t *testing.T) {
 	}
 }
 
+// An answer that mentions a block page's words is still an answer: only
+// a non-JSON body or a proxy's error message is searched for them.
+func TestCompleteAnswerMentioningCloudflare(t *testing.T) {
+	answer := "Cloudflare shows <html> pages titled Attention Required"
+	body, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": answer}}}})
+	srv, seen := fakeServer(t, 200, string(body), nil)
+	p := pace.New(pace.Options{Retries: 3, Clock: &instantClock{}})
+	got, _, err := (&Client{BaseURL: srv.URL, Pacer: p}).Complete(context.Background(), "m", "p")
+	if err != nil || got != answer {
+		t.Fatalf("answer: %q err=%v", got, err)
+	}
+	if len(*seen) != 1 || p.Status().Blocks != 0 {
+		t.Fatalf("a successful answer was treated as a block: requests=%d status=%+v", len(*seen), p.Status())
+	}
+	// The same words in a non-JSON 200 body are a block page.
+	srv, seen = fakeServer(t, 200, "<!DOCTYPE html><title>Attention Required! | Cloudflare</title>", nil)
+	p = pace.New(pace.Options{Retries: 1, Clock: &instantClock{}})
+	if _, _, err := (&Client{BaseURL: srv.URL, Pacer: p}).Complete(context.Background(), "m", "p"); err == nil || len(*seen) != 2 {
+		t.Fatalf("block page: err=%v requests=%d", err, len(*seen))
+	}
+}
+
 func TestCompleteGivesUpAfterRetries(t *testing.T) {
 	srv, seen := fakeServer(t, 503, `<html>down</html>`, nil)
 	p := pace.New(pace.Options{Retries: 1, Clock: &instantClock{}})

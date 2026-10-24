@@ -299,7 +299,10 @@ func RetryDelay(attempt int) time.Duration {
 // Blocked classifies a response as a transient upstream block worth
 // retrying: a rate-limit or server-side status, an HTML body where JSON
 // belongs (Cloudflare block pages), or a proxy error message carrying
-// one (LiteLLM wraps the upstream's HTML inside its JSON error).
+// one (LiteLLM wraps the upstream's HTML inside its JSON error). It
+// searches all of body, so pass it a body that is not a parsed answer:
+// a model's reply may mention Cloudflare (package openai checks JSON
+// bodies only through their error message).
 func Blocked(status int, body string) bool {
 	if status == 429 || status >= 500 {
 		return true
